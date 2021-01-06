@@ -1,0 +1,85 @@
+﻿@page "/fetchdata"
+
+@using RedisDemo.Data
+@using RedisDemo.Extensions
+<!--- redis epcific changes starts-->
+@inject Microsoft.Extensions.Caching.Distributed.IDistributedCache cache
+@inject WeatherForecastService ForecastService
+    <!--- redis epcific changes ends-->
+<h1>Weather forecast</h1>
+
+<p>This component demonstrates fetching data from a service.</p>
+
+<buton class="btn btn-primary" @onclick="LoadForeCast"></buton>
+<!--- redis epcific changes starts-->
+@if (forecasts is null && loadLocation == "")
+{
+    <p><em>Click the button to load the forecast</em></p>
+}
+<!--- redis epcific changes ends-->
+    else if (forecasts is null)
+    {
+<p><em>Loading...</em></p>
+    }
+    else
+    {
+<!--- redis epcific changes starts-->
+<div class="h3 @isCacheData">@loadLocation</div>
+<!--- redis epcific changes ends-->
+<table class="table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Temp. (C)</th>
+            <th>Temp. (F)</th>
+            <th>Summary</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var forecast in forecasts)
+        {
+            <tr>
+                <td>@forecast.Date.ToShortDateString()</td>
+                <td>@forecast.TemperatureC</td>
+                <td>@forecast.TemperatureF</td>
+                <td>@forecast.Summary</td>
+            </tr>
+        }
+    </tbody>
+</table>
+    }
+
+@code {
+    <!--- redis epcific changes starts-->
+    private WeatherForecast[] forecasts;
+    private string loadLocation = "";
+    private string isCacheData = "";
+
+    @*protected override async Task OnInitializedAsync()
+        {
+            forecasts = await ForecastService.GetForecastAsync(DateTime.Now);
+        }*@
+
+    private async Task LoadForeCast()
+    {
+        forecasts = null;
+        loadLocation = null;
+
+        string recordKey = "WeatherForeCast_" + DateTime.Now.ToString("yyyyMMdd_hhmm");
+
+        forecasts = await cache.getRecordAsync<WeatherForecast[]>(recordKey);
+        if (forecasts == null)
+        {
+            forecasts = await ForecastService.GetForecastAsync(DateTime.Now);
+            loadLocation = $"Loaded from API at {DateTime.Now}";
+            isCacheData = "";
+            await cache.setRecordAsync(recordKey, forecasts);
+        }
+        else
+        {
+            loadLocation = $"Loaded from cache at {DateTime.Now}";
+            isCacheData = "text-danger";
+        }
+    }
+    <!--- redis epcific changes ends-->
+}
